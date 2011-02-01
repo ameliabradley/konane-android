@@ -422,7 +422,3 @@ public class Konane {
 		}
 	}
 }
-
-enum PlayerColor {
-	BLACK, WHITE
-}
