@@ -4,7 +4,7 @@ package us.elephanthunter.konane.android;
 public enum KonaneCode {
 	MENU(8),
 	OP_NEW_GAME(11),
-	OP_REPLAY(2),
+	OP_REPLAY(2), 
 	OP_OPTIONS(6),
 	OP_EXIT(7),
 	DIFF_NEGAMAX(3),
