@@ -1,0 +1,209 @@
+package us.elephanthunter.konane.android;
+
+import us.elephanthunter.konane.core.Board;
+import us.elephanthunter.konane.core.JumpMove;
+import us.elephanthunter.konane.core.Konane;
+import us.elephanthunter.konane.core.MinimaxPlayer;
+import us.elephanthunter.konane.core.NegamaxAlphaBetaPlayer;
+import us.elephanthunter.konane.core.Player;
+import us.elephanthunter.konane.core.RemovePieceMove;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.MotionEvent;
+
+public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callback {
+	// TODO: Set this when the surface is created
+	int tileSize;
+
+	private Player playerWhite;
+	private Player playerBlack;
+	
+	private Board board;
+	private int boardSize = 6;
+	
+	private int selectedX = 0;
+	private int selectedY = 0;
+	
+	public void setSelected(int x, int y) {
+		selectedX = x;
+		selectedY = y;
+	}
+
+	public KonaneBoardView(Context context, AttributeSet attrs) {
+		super(context,attrs);
+		
+		board = new Board(boardSize);
+		
+		playerBlack = new HumanPlayer(this);
+		playerWhite = new NegamaxAlphaBetaPlayer(5);
+		
+		playerBlack.setBoard(board);
+		playerWhite.setBoard(board);
+		
+		this.setOnTouchListener(new View.OnTouchListener() {
+	        @Override
+	        public boolean onTouch(View v, MotionEvent event) {
+	            if (event.getAction() == MotionEvent.ACTION_DOWN){
+	            	float x = event.getX();
+	            	float y = event.getY();
+	            	
+	            	int xPos = (int) Math.floor(x / tileSize);
+	            	int yPos = (int) Math.floor(y / tileSize);
+	            	
+	            	// Validate that we're in bounds
+	            	if ((xPos < 0) || (yPos < 0) || (xPos >= boardSize) || (yPos >= boardSize)) {
+	            		return false;
+	            	}
+	            	
+	            	// TODO Loop through all the move positions and validate
+	            	
+	            	selectedX = xPos;
+	            	selectedY = yPos;
+
+	            	draw();
+	            }
+	            
+	            return true;
+	        }
+	    });
+	    
+	}
+	
+	public void drawTiles() {
+		SurfaceHolder holder = getHolder();
+		Canvas canvas = holder.lockCanvas();
+		
+		tileSize = getWidth() / boardSize;
+		
+		Paint dark =  new Paint();
+		dark.setColor(Color.rgb(110, 68, 24));
+		Paint light = new Paint();
+		light.setColor(Color.rgb(195, 157, 84));
+		
+		Paint whitePiece = new Paint();
+		whitePiece.setColor(Color.rgb(203, 203, 203));
+		whitePiece.setAntiAlias(true);
+		Paint blackPiece = new Paint();
+		blackPiece.setColor(Color.rgb(84, 84, 84));
+		blackPiece.setAntiAlias(true);
+		
+		Paint black = new Paint();
+		black.setColor(Color.BLACK);
+		black.setAntiAlias(true);
+		
+		boolean flipColor = true;
+		for (int y = 0; y < boardSize; y++) {
+			for (int x = 0; x < boardSize; x++) {
+				Rect r = getRectByPosition(x, y);
+				
+				if ((x == 4) && (y == 4)) {
+					canvas.drawRect(r, black);
+					canvas.drawRect(
+						r.left + 4,
+						r.top + 4,
+						r.right - 4,
+						r.bottom - 4, (flipColor) ? light : dark);
+				} else {
+					canvas.drawRect(r, (flipColor) ? light : dark);
+				}
+				
+				int radius = (tileSize / 2) - 5;
+				int halfx = (int) (tileSize * (x + 0.5));
+				int halfy = (int) (tileSize * (y + 0.5));
+				
+				if ((x == selectedX) && (y == selectedY)) {
+					canvas.drawCircle(halfx, halfy, radius + 4, black);
+				}
+				
+				canvas.drawCircle(halfx, halfy, radius, (flipColor) ? blackPiece : whitePiece);
+				flipColor = !flipColor;
+			}
+			
+			flipColor = !flipColor;
+		}
+		
+		holder.unlockCanvasAndPost(canvas);
+	}
+	
+	private Rect getRectByPosition(int x, int y) {
+		int xPosition = tileSize * x;
+		int yPosition = tileSize * y;
+
+		Rect r = new Rect(
+			xPosition,
+			yPosition,
+			xPosition + tileSize,
+			yPosition + tileSize);
+		
+		return r;
+	}
+	
+	public void draw() {
+		drawTiles();
+	}
+
+	@Override
+	public void surfaceChanged(SurfaceHolder holder, int format, int width,
+			int height) {
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+	public void surfaceCreated(SurfaceHolder holder) {
+		// TODO Auto-generated method stub
+		Log.i("KonaneAndroid", "Surface created");
+	}
+
+	@Override
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	public JumpMove promptJumpMove() {
+		// TODO: Implement
+	}
+	
+	public RemovePieceMove promptRemovePieceMove() {
+		// TODO: Implement		
+	}
+	
+	class HumanPlayer implements Player {
+		Board board;
+		KonaneBoardView konane;
+
+		HumanPlayer(KonaneBoardView konane) {
+			this.konane = konane;
+		}
+
+		public void setBoard(Board board) {
+			this.board = board;
+		}
+
+		public void move() {
+			if (board.getTurnNumber() < 2) {
+				RemovePieceMove firstMove = konane.promptRemovePieceMove();
+				board.makeMove(firstMove);
+			} else {
+				JumpMove move = konane.promptJumpMove();
+				board.makeMove(move);
+			}
+		}
+		
+		public String getType() {
+			return "Human";
+		}
+
+		public boolean isAutomated() {
+			return false;
+		}
+	}
+}
