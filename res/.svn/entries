@@ -1,43 +1,0 @@
-10
-
-dir
-1
-svn+ssh://elephanthunter@64.30.133.99/home/svn/konaneandroid/res
-svn+ssh://elephanthunter@64.30.133.99/home/svn/konaneandroid
-
-
-
-2011-01-29T08:08:17.513613Z
-1
-tbradley
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-19c2f0c3-6756-4345-984d-f7ff1b073cfa
-
-values
-dir
-
-drawable-hdpi
-dir
-
-drawable-ldpi
-dir
-
-drawable-mdpi
-dir
-
-layout
-dir
-
