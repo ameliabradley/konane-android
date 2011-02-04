@@ -5,8 +5,11 @@ import us.elephanthunter.konane.core.JumpMove;
 import us.elephanthunter.konane.core.Konane;
 import us.elephanthunter.konane.core.MinimaxPlayer;
 import us.elephanthunter.konane.core.NegamaxAlphaBetaPlayer;
+import us.elephanthunter.konane.core.Piece;
 import us.elephanthunter.konane.core.Player;
+import us.elephanthunter.konane.core.PlayerColor;
 import us.elephanthunter.konane.core.RemovePieceMove;
+import us.elephanthunter.konane.core.Tile;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -29,12 +32,16 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 	private Board board;
 	private int boardSize = 6;
 	
-	private int selectedX = 0;
-	private int selectedY = 0;
+	private Piece selectedPiece = null;
 	
-	public void setSelected(int x, int y) {
-		selectedX = x;
-		selectedY = y;
+	private BoardInputState boardInputState = BoardInputState.WAITING;
+	
+	private enum BoardInputState {
+		WAITING,
+		JUMPMOVE_CHOOSEPIECE,
+		JUMPMOVE_CHOOSETILE,
+		REMOVEPIECEMOVE_CHOOSEPIECE,
+		REMOVEPIECEMOVE_CONFIRM
 	}
 
 	public KonaneBoardView(Context context, AttributeSet attrs) {
@@ -48,12 +55,16 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 		playerBlack.setBoard(board);
 		playerWhite.setBoard(board);
 		
+		playerBlack.move();
+		
 		this.setOnTouchListener(new View.OnTouchListener() {
 	        @Override
 	        public boolean onTouch(View v, MotionEvent event) {
 	            if (event.getAction() == MotionEvent.ACTION_DOWN){
 	            	float x = event.getX();
 	            	float y = event.getY();
+	            	
+	            	if (boardInputState == BoardInputState.WAITING) return false;
 	            	
 	            	int xPos = (int) Math.floor(x / tileSize);
 	            	int yPos = (int) Math.floor(y / tileSize);
@@ -63,10 +74,55 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 	            		return false;
 	            	}
 	            	
-	            	// TODO Loop through all the move positions and validate
+	            	Tile tile = board.getTileByPosition(xPos, yPos);
+            		Piece piece = tile.getPiece();
 	            	
-	            	selectedX = xPos;
-	            	selectedY = yPos;
+	            	// TODO Loop through all the move positions and validate
+	            	if (boardInputState == BoardInputState.REMOVEPIECEMOVE_CHOOSEPIECE) {
+	            		if (piece != null) {
+	            			RemovePieceMove removePieceMove = new RemovePieceMove(piece);
+	            			if (board.isValidMove(removePieceMove)) {
+		            			selectedPiece = piece;
+		            			boardInputState = BoardInputState.REMOVEPIECEMOVE_CONFIRM;
+	            			}
+	            		}
+	            	} else if (boardInputState == BoardInputState.JUMPMOVE_CHOOSEPIECE) {
+	            		if (piece != null && piece.getColor() == board.getPlayerTurn()) {
+	            			selectedPiece = piece;
+	            			boardInputState = BoardInputState.JUMPMOVE_CHOOSETILE;
+	            		}
+	            	} else if (boardInputState == BoardInputState.JUMPMOVE_CHOOSETILE) {
+	            		if (piece == null) {
+	            			JumpMove jumpMove = new JumpMove(selectedPiece, tile);
+	            			if (board.isValidMove(jumpMove)) {
+	            				board.makeMove(jumpMove);
+		            			if (board.getPlayerTurn() == PlayerColor.BLACK) {
+		            				playerBlack.move();
+		            			} else {
+		            				playerWhite.move();
+		            			}
+	            			}
+	            		} else if (piece.getColor() == board.getPlayerTurn()) {
+	            			selectedPiece = piece;
+	            			boardInputState = BoardInputState.JUMPMOVE_CHOOSETILE;
+	            		}
+	            	} else if (boardInputState == BoardInputState.REMOVEPIECEMOVE_CONFIRM) {
+	            		// If the user has chosen the same piece twice
+	            		if (piece == selectedPiece) {
+		            		RemovePieceMove removePieceMove = new RemovePieceMove(piece);
+	            			selectedPiece = null;
+	            			board.makeMove(removePieceMove);
+	            			
+	            			if (board.getPlayerTurn() == PlayerColor.BLACK) {
+	            				playerBlack.move();
+	            			} else {
+	            				playerWhite.move();
+	            			}
+	            		} else if (piece != null && piece.getColor() == board.getPlayerTurn()) {
+	            			selectedPiece = piece;
+	            			boardInputState = BoardInputState.REMOVEPIECEMOVE_CONFIRM;
+	            		}
+	            	}
 
 	            	draw();
 	            }
@@ -99,6 +155,10 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 		black.setColor(Color.BLACK);
 		black.setAntiAlias(true);
 		
+		Paint red = new Paint();
+		red.setColor(Color.RED);
+		red.setAntiAlias(true);
+		
 		boolean flipColor = true;
 		for (int y = 0; y < boardSize; y++) {
 			for (int x = 0; x < boardSize; x++) {
@@ -119,11 +179,25 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 				int halfx = (int) (tileSize * (x + 0.5));
 				int halfy = (int) (tileSize * (y + 0.5));
 				
-				if ((x == selectedX) && (y == selectedY)) {
-					canvas.drawCircle(halfx, halfy, radius + 4, black);
+				if (selectedPiece != null) {
+					Tile tile = selectedPiece.getTile();
+					
+					Paint color;
+					if (boardInputState == BoardInputState.REMOVEPIECEMOVE_CONFIRM) {
+						color = red;
+					} else {
+						color = black;
+					}
+					
+					if ((tile.getX() == x) && (tile.getY() == y)) {
+						canvas.drawCircle(halfx, halfy, radius + 4, color);
+					}
 				}
 				
-				canvas.drawCircle(halfx, halfy, radius, (flipColor) ? blackPiece : whitePiece);
+				Piece piece = board.getPieceByPosition(x, y);
+				if (piece != null) {
+					canvas.drawCircle(halfx, halfy, radius, (flipColor) ? blackPiece : whitePiece);
+				}
 				flipColor = !flipColor;
 			}
 			
@@ -168,12 +242,19 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 		
 	}
 	
-	public JumpMove promptJumpMove() {
-		// TODO: Implement
-	}
-	
-	public RemovePieceMove promptRemovePieceMove() {
-		// TODO: Implement		
+	class GameThread implements Runnable {
+		public void makeMove() {
+			if (board.getPlayerTurn() == PlayerColor.BLACK) {
+				playerBlack.move();
+			} else {
+				playerWhite.move();
+			}			
+		}
+		
+		@Override
+		public void run() {
+			makeMove();
+		}
 	}
 	
 	class HumanPlayer implements Player {
@@ -190,11 +271,13 @@ public class KonaneBoardView extends SurfaceView implements SurfaceHolder.Callba
 
 		public void move() {
 			if (board.getTurnNumber() < 2) {
-				RemovePieceMove firstMove = konane.promptRemovePieceMove();
-				board.makeMove(firstMove);
+				//RemovePieceMove firstMove = konane.promptRemovePieceMove();
+				//board.makeMove(firstMove);
+				konane.boardInputState = BoardInputState.REMOVEPIECEMOVE_CHOOSEPIECE;
 			} else {
-				JumpMove move = konane.promptJumpMove();
-				board.makeMove(move);
+				//JumpMove move = konane.promptJumpMove();
+				//board.makeMove(move);
+				konane.boardInputState = BoardInputState.JUMPMOVE_CHOOSEPIECE;
 			}
 		}
 		
